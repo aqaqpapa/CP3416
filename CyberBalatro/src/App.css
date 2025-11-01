@@ -1,0 +1,195 @@
+/* --- Global & App Container --- */
+body { margin: 0; font-family: sans-serif; }
+.app {
+  width: 100vw;
+  height: 100vh;
+  background-color: #1a1a1a;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* --- NEW: The Ultimate Game Board Layout using CSS Grid --- */
+.game-board {
+  width: 95%;
+  max-width: 1600px; /* Allow even more width */
+  height: 95%;
+  background: #242424;
+  border-radius: 12px;
+  border: 2px solid #444;
+  
+  display: grid;
+  /* Define our layout: 3 columns and 2 rows */
+  grid-template-columns: 250px 1fr; /* Left column (rules) and main content column */
+  grid-template-rows: 1fr 240px; /* Top area takes remaining space, bottom area is fixed height */
+  grid-template-areas:
+    "rules main"
+    "bottom bottom"; /* The new bottom area spans both columns */
+  gap: 10px;
+  padding: 10px;
+  box-sizing: border-box;
+  position: relative; 
+}
+
+/* --- Assigning Components to Grid Areas --- */
+.rules-area { 
+  grid-area: rules; 
+  overflow-y: auto;
+  background-color: rgba(0,0,0,0.15);
+  border-radius: 8px;
+  padding: 5px;
+  
+  /* --- 【关键修复】: 添加这一行 --- */
+  position: relative; 
+}
+.main-area { grid-area: main; display: flex; flex-direction: column; min-height: 0; }
+.bottom-area { grid-area: bottom; display: flex; gap: 10px; } /* The new container for jokers and hand */
+
+/* --- Styling the new Bottom Area --- */
+.joker-inventory, .hand-display {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.joker-inventory {
+  width: 40%; /* Jokers take up 40% of the bottom area */
+}
+.hand-display {
+  flex-grow: 1; /* Hand takes the rest of the space */
+}
+
+.inventory-header {
+  text-align: center;
+  font-weight: bold;
+  color: #aaa;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #444;
+  margin-bottom: 10px;
+}
+
+.joker-slots, .card-slots {
+  flex-grow: 1;
+  display: flex;
+  flex-wrap: wrap; /* Allow items to wrap to the next line */
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+/* --- Other Area styles (mostly unchanged) --- */
+.info-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 15px 25px;
+  border-bottom: 2px solid #444;
+}
+.last-hand-info { text-align: right; }
+.last-hand-info h4, .last-hand-info p { margin: 0; padding: 2px 0; }
+
+.play-area {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+.action-buttons button {
+  padding: 15px 30px;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 2px solid #888;
+  background-color: #555;
+  color: white;
+}
+/* --- Game Over Screen Styles --- */
+.game-over-screen {
+  text-align: center;
+  color: #ff4136; /* Red for failure */
+}
+
+.game-over-screen h1 {
+  font-size: 64px;
+}
+
+.game-over-screen button {
+  padding: 15px 30px;
+  font-size: 20px;
+  cursor: pointer;
+  background-color: #ffde59;
+  color: #111;
+  border: none;
+  border-radius: 8px;
+}
+/* --- Info Area Adjustment --- */
+.info-area h3, .info-area h4 {
+  margin: 2px 0; /* Reduce vertical margin for tighter look */
+}
+
+/* --- Action Buttons Adjustment --- */
+/* Make action buttons container use flex to place buttons side-by-side */
+.action-buttons {
+  display: flex;
+  gap: 20px;
+}
+
+/* --- Info Area Final Upgrade --- */
+.info-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Vertically align items */
+  padding: 10px 25px;
+}
+
+.boss-display {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ... (other styles) */
+
+.boss-icon {
+  width: 80px;
+  height: 80px;
+  background-color: rgba(0,0,0,0.3);
+  border-radius: 50%;
+  padding: 15px; /* 内边距，给图标留出呼吸空间 */
+  box-sizing: border-box;
+
+  /* 【新增】: 使用flexbox来确保内部SVG的居中 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.boss-icon svg {
+  width: 100%;
+  height: 100%;
+
+  /* 
+    【关键修复】: 确保 object-fit 属性存在且正确。
+    'contain' 能保证SVG在保持自身宽高比的前提下，
+    完整地被缩放到容器内部。
+  */
+  object-fit: contain; 
+  
+  filter: invert(70%) sepia(80%) saturate(500%) hue-rotate(350deg);
+}
+
+/* ... (other styles) */
+.boss-info h3, .boss-info h4 {
+  margin: 0;
+}
+
+.player-stats {
+  text-align: right;
+}
