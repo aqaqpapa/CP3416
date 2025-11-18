@@ -1,3 +1,5 @@
+// src/Pages/GamePage.jsx
+
 import React, { useState, useEffect } from 'react';
 // Components
 import Card from '../components/Card.jsx';
@@ -9,6 +11,8 @@ import Shop from '../components/Shop.jsx';
 import DeckTracker from '../components/DeckTracker.jsx';
 import ScoreAnimation from '../components/ScoreAnimation.jsx';
 import DeckPreview from '../components/DeckPreview.jsx';
+import TutorialGuide from '../components/TutorialGuide.jsx';
+
 // Data & Logic
 import createDeck, { shuffleDeck, RANK_THEME } from '../data/deck.js';
 import { evaluateHand, calculateScore, calculateScoreWithSequence } from '../logic/gameLogic.js';
@@ -44,10 +48,30 @@ export default function GamePage() {
   const [animationSequence, setAnimationSequence] = useState([]);
   const [finalAnimatedResult, setFinalAnimatedResult] = useState(null);
   const [showDeckPreview, setShowDeckPreview] = useState(false);
+  const [isTutorialActive, setIsTutorialActive] = useState(false);
+  const [tutorialStep, setTutorialStep] = useState(0);
+  const [discoveredRanks, setDiscoveredRanks] = useState([]);
+
+  const TUTORIAL_STEPS = {
+    1: { targetClass: 'boss-display' }, 2: { targetClass: 'boss-display' },
+    3: { targetClass: 'rules-area' }, 4: { targetClass: 'hand-display' },
+    5: { targetClass: 'hand-display' }, 6: { targetClass: 'action-buttons' },
+    7: { targetClass: 'player-stats' }, 8: { targetClass: 'joker-inventory' },
+    9: { targetClass: '' },
+  };
 
   const currentBoss = rounds.find((r) => r.round === roundNum)?.boss;
 
-  useEffect(() => { startNewGame(); }, []);
+  useEffect(() => {
+    const hasCompletedTutorial = localStorage.getItem('cybersecurityJokerTutorialCompleted');
+    if (hasCompletedTutorial) {
+      startNewGame(false);
+    } else {
+      startNewGame(true);
+      setIsTutorialActive(true);
+      setTutorialStep(1);
+    }
+  }, []);
 
   useEffect(() => {
     if (gameState === GAME_STATES.PLAYING && selectedCards.length > 0) {
@@ -58,31 +82,79 @@ export default function GamePage() {
       setPreviewInfo(null);
     }
   }, [selectedCards, myJokers, gameState, currentBoss]);
-  
-  const drawCards = (numToDraw, currentDeck, currentDiscard) => { 
-    let newCards = [], deck = [...currentDeck], discard = [...currentDiscard];
-    for (let i = 0; i < numToDraw; i++) { 
-      if (deck.length === 0) { 
-        if (discard.length === 0) break; 
-        deck = shuffleDeck(discard); 
-        discard = []; 
-      } 
-      newCards.push(deck.pop()); 
-    } 
-    return { newCards, updatedDeck: deck, updatedDiscard: discard }; 
+
+  const handleNextTutorialStep = () => setTutorialStep(prev => prev + 1);
+
+  const handleEndTutorial = () => {
+    setIsTutorialActive(false);
+    setTutorialStep(0);
+    localStorage.setItem('cybersecurityJokerTutorialCompleted', 'true');
+    startNewGame(false);
   };
-  
-  const startNewGame = () => {
-    const fullDeck = shuffleDeck(createDeck());
-    setDeck(fullDeck.slice(MAX_HAND_SIZE));
-    setHand(fullDeck.slice(0, MAX_HAND_SIZE));
-    setDiscardPile([]); setSelectedCards([]); setMyJokers([]); setScore(0);
-    setMoney(10); setHandsRemaining(4); setDiscardsRemaining(3); setRoundNum(1);
+
+  const drawCards = (numToDraw, currentDeck, currentDiscard) => {
+    let newCards = [], deck = [...currentDeck], discard = [...currentDiscard];
+    for (let i = 0; i < numToDraw; i++) {
+      if (deck.length === 0) {
+        if (discard.length === 0) break;
+        deck = shuffleDeck(discard);
+        discard = [];
+      }
+      newCards.push(deck.pop());
+    }
+    return { newCards, updatedDeck: deck, updatedDiscard: discard };
+  };
+
+  const startNewGame = (isTutorial = false) => {
+    const fullDeck = createDeck();
+    let initialHand, initialDeck;
+    if (isTutorial) {
+      let deckForTutorial = [...fullDeck];
+      initialHand = [];
+      const ranksToFind = ['7', 'K', 'A', '5', '7', 'K', '2', 'J'];
+      ranksToFind.slice(0, MAX_HAND_SIZE).forEach(rankToFind => {
+        const cardIndex = deckForTutorial.findIndex(card => card.rank === rankToFind);
+        if (cardIndex !== -1) {
+          initialHand.push(deckForTutorial[cardIndex]);
+          deckForTutorial.splice(cardIndex, 1);
+        }
+      });
+      initialDeck = shuffleDeck(deckForTutorial);
+    } else {
+      const shuffled = shuffleDeck(fullDeck);
+      initialHand = shuffled.slice(0, MAX_HAND_SIZE);
+      initialDeck = shuffled.slice(MAX_HAND_SIZE);
+    }
+    setHand(initialHand);
+    setDeck(initialDeck);
+    setDiscardPile([]);
+    setSelectedCards([]);
+    setMyJokers([]);
+    setMoney(10);
+    setScore(0);
+    setHandsRemaining(4);
+    setDiscardsRemaining(3);
+    setRoundNum(1);
+    setDiscoveredRanks([]); // Reset discovered ranks for a new game
     setGameState(GAME_STATES.PLAYING);
   };
-  
+
   const handlePlayHand = () => {
+    if (isTutorialActive && tutorialStep === 6) setTutorialStep(7);
     if (selectedCards.length === 0 || gameState !== GAME_STATES.PLAYING) return;
+
+    const playedRanks = new Set(selectedCards.map(card => card.rank));
+    const newlyDiscovered = [];
+    (currentBoss?.weaknesses || []).forEach(rank => {
+      if (playedRanks.has(rank) && !discoveredRanks.includes(rank)) newlyDiscovered.push(rank);
+    });
+    (currentBoss?.resistances || []).forEach(rank => {
+      if (playedRanks.has(rank) && !discoveredRanks.includes(rank)) newlyDiscovered.push(rank);
+    });
+    if (newlyDiscovered.length > 0) {
+      setDiscoveredRanks(prev => [...prev, ...newlyDiscovered]);
+    }
+
     const handType = evaluateHand(selectedCards);
     const { finalResult, sequence } = calculateScoreWithSequence(selectedCards, handType, myJokers, currentBoss);
     setAnimationSequence(sequence);
@@ -91,6 +163,7 @@ export default function GamePage() {
   };
 
   const handleAnimationComplete = () => {
+    if (isTutorialActive && tutorialStep === 7) setTutorialStep(8);
     const newScore = score + finalAnimatedResult.score;
     const newHandsRemaining = handsRemaining - 1;
     setScore(newScore);
@@ -112,7 +185,7 @@ export default function GamePage() {
     }
   };
 
-  const handleDiscardHand = () => { 
+  const handleDiscardHand = () => {
     if (discardsRemaining <= 0 || selectedCards.length === 0 || gameState !== GAME_STATES.PLAYING) return;
     setDiscardsRemaining((prev) => prev - 1);
     const updatedDiscardPile = [...discardPile, ...selectedCards];
@@ -125,26 +198,30 @@ export default function GamePage() {
     setSelectedCards([]);
   };
 
-  const goToShop = () => { 
+  const goToShop = () => {
     setMoney((prev) => prev + (currentBoss?.reward || 0) + handsRemaining);
     const available = allJokers.filter((j) => !myJokers.some((mj) => mj.id === j.id));
     setShopJokers(shuffleDeck(available).slice(0, 2));
     setGameState(GAME_STATES.SHOP);
   };
 
-  const handleBuyJoker = (joker) => { 
-    if (money >= 10 && myJokers.length < 5) { 
-      setMoney((prev) => prev - 10); 
-      setMyJokers((prev) => [...prev, joker]); 
-      setShopJokers((prev) => prev.filter((j) => j.id !== joker.id)); 
-    } 
+  const handleBuyJoker = (joker) => {
+    if (money >= 10 && myJokers.length < 5) {
+      setMoney((prev) => prev - 10);
+      setMyJokers((prev) => [...prev, joker]);
+      setShopJokers((prev) => prev.filter((j) => j.id !== joker.id));
+    }
   };
-  
+
   const startNextRound = () => {
     const nextRoundNum = roundNum + 1;
     if (rounds.find((r) => r.round === nextRoundNum)) {
       setRoundNum(nextRoundNum);
-      setScore(0); setHandsRemaining(4); setDiscardsRemaining(3);
+      setScore(0);
+      setHandsRemaining(4);
+      setDiscardsRemaining(3);
+      setSelectedCards([]);
+      setDiscoveredRanks([]); // Reset discovered ranks for the new boss
       const newFullDeck = shuffleDeck(createDeck());
       setHand(newFullDeck.slice(0, MAX_HAND_SIZE));
       setDeck(newFullDeck.slice(MAX_HAND_SIZE));
@@ -152,47 +229,52 @@ export default function GamePage() {
       setGameState(GAME_STATES.PLAYING);
     } else {
       alert('Congratulations! You have breached all systems!');
-      startNewGame();
+      startNewGame(false);
     }
   };
 
-  const handleCardClick = (clickedCard) => { 
+  const handleCardClick = (clickedCard) => {
+    if (isTutorialActive && tutorialStep !== 5) return;
     if (gameState !== GAME_STATES.PLAYING) return;
     const isAlreadySelected = selectedCards.some((card) => card.id === clickedCard.id);
+    let updatedSelectedCards;
     if (isAlreadySelected) {
-      setSelectedCards((prev) => prev.filter((card) => card.id !== clickedCard.id));
+      updatedSelectedCards = selectedCards.filter((card) => card.id !== clickedCard.id);
     } else if (selectedCards.length < MAX_SELECT_SIZE) {
-      setSelectedCards((prev) => [...prev, clickedCard]);
+      updatedSelectedCards = [...selectedCards, clickedCard];
+    } else { return; }
+    setSelectedCards(updatedSelectedCards);
+    if (isTutorialActive && tutorialStep === 5) {
+      if (updatedSelectedCards.length === 4) {
+        const handType = evaluateHand(updatedSelectedCards);
+        if (handType.name === 'Two Pair') setTutorialStep(6);
+      }
     }
   };
 
   const isCardSelected = (card) => selectedCards.some((selected) => selected.id === card.id);
 
-  // --- Render ---
   return (
     <div className="app">
-      {gameState === GAME_STATES.ANIMATING && (<ScoreAnimation sequence={animationSequence} onComplete={handleAnimationComplete} />)}
+      {isTutorialActive && <TutorialGuide step={tutorialStep} onNextStep={handleNextTutorialStep} onEndTutorial={handleEndTutorial} targetClass={TUTORIAL_STEPS[tutorialStep]?.targetClass || ''} />}
+      {gameState === GAME_STATES.ANIMATING && <ScoreAnimation sequence={animationSequence} onComplete={handleAnimationComplete} />}
       <div className="game-board">
         {gameState === GAME_STATES.GAME_OVER && (
           <div className="game-over-screen">
             <h1>Attack Failed</h1>
             <p>Failed to breach {currentBoss?.name}.</p>
-            <button onClick={startNewGame}>Restart</button>
+            <button onClick={() => startNewGame(false)}>Restart</button>
           </div>
         )}
-        {gameState === GAME_STATES.SHOP && (
-          <Shop money={money} onBuyJoker={handleBuyJoker} onProceed={startNextRound} availableJokers={shopJokers} />
-        )}
-
+        {gameState === GAME_STATES.SHOP && <Shop money={money} onBuyJoker={handleBuyJoker} onProceed={startNextRound} availableJokers={shopJokers} />}
         <div className="rules-area">
           <HandRules />
           <Legend />
           <div onMouseEnter={() => setShowDeckPreview(true)} onMouseLeave={() => setShowDeckPreview(false)}>
             <DeckTracker deckCount={deck.length} discardCount={discardPile.length} />
-            {showDeckPreview && (<DeckPreview deck={deck} hand={hand} discardPile={discardPile} />)}
+            {showDeckPreview && <DeckPreview deck={deck} hand={hand} discardPile={discardPile} />}
           </div>
         </div>
-
         <div className="main-area">
           <div className="info-area">
             <div className="boss-display">
@@ -206,11 +288,17 @@ export default function GamePage() {
                       <div className="affinity weakness">
                         <strong>Weakness:</strong>
                         <div className="card-ranks-container">
-                          {currentBoss.weaknesses.map(rank => 
-                            <div key={rank} className="affinity-item">
-                              <span title={RANK_THEME[rank]?.name} className="card-rank-icon">{rank}</span>
-                              <span className="attack-name">{RANK_THEME[rank]?.name}</span>
-                            </div>
+                          {currentBoss.weaknesses.map(rank =>
+                            discoveredRanks.includes(rank) ? (
+                              <div key={rank} className="affinity-item revealed">
+                                <span title={RANK_THEME[rank]?.name} className="card-rank-icon">{rank}</span>
+                                <span className="attack-name">{RANK_THEME[rank]?.name}</span>
+                              </div>
+                            ) : (
+                              <div key={rank} className="affinity-item hidden">
+                                <span className="card-rank-icon">?</span>
+                              </div>
+                            )
                           )}
                         </div>
                       </div>
@@ -219,11 +307,17 @@ export default function GamePage() {
                       <div className="affinity resistance">
                         <strong>Resistance:</strong>
                         <div className="card-ranks-container">
-                          {currentBoss.resistances.map(rank => 
-                            <div key={rank} className="affinity-item">
-                              <span title={RANK_THEME[rank]?.name} className="card-rank-icon">{rank}</span>
-                              <span className="attack-name">{RANK_THEME[rank]?.name}</span>
-                            </div>
+                          {currentBoss.resistances.map(rank =>
+                            discoveredRanks.includes(rank) ? (
+                              <div key={rank} className="affinity-item revealed">
+                                <span title={RANK_THEME[rank]?.name} className="card-rank-icon">{rank}</span>
+                                <span className="attack-name">{RANK_THEME[rank]?.name}</span>
+                              </div>
+                            ) : (
+                              <div key={rank} className="affinity-item hidden">
+                                <span className="card-rank-icon">?</span>
+                              </div>
+                            )
                           )}
                         </div>
                       </div>
@@ -237,7 +331,6 @@ export default function GamePage() {
                 </div>
               </div>
             </div>
-
             <div className="player-stats">
               <h3>Current Score: {score}</h3>
               <h4>Hands Remaining: {handsRemaining}</h4>
@@ -245,17 +338,14 @@ export default function GamePage() {
               <h4>Money: ${money}</h4>
             </div>
           </div>
-
           <div className="play-area">
             <div className="action-buttons">
-              <button onClick={handlePlayHand} disabled={selectedCards.length === 0}>Play Attack ({handsRemaining})</button>
-              <button onClick={handleDiscardHand} disabled={selectedCards.length === 0 || discardsRemaining <= 0}>Discard ({discardsRemaining})</button>
+              <button onClick={handlePlayHand} disabled={selectedCards.length === 0 || (isTutorialActive && tutorialStep !== 6)}>Play Attack ({handsRemaining})</button>
+              <button onClick={handleDiscardHand} disabled={selectedCards.length === 0 || discardsRemaining <= 0 || isTutorialActive}>Discard ({discardsRemaining})</button>
             </div>
             <ScorePreview handInfo={previewInfo} />
           </div>
-
         </div>
-
         <div className="bottom-area">
           <div className="joker-inventory">
             <div className="inventory-header">Hacker Skills</div>
